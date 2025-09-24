@@ -1,0 +1,123 @@
+{
+  "name": "contextual-bookmark",
+  "displayName": "contextual-bookmark",
+  "description": "",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.104.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onView:bookmarks"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "contextual-bookmark.addBookmark",
+        "title": "Add Bookmark",
+        "icon": "$(add)"
+      },
+      {
+        "command": "contextual-bookmark.removeBookmark",
+        "title": "Remove Bookmark",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "contextual-bookmark.jumpToBookmark",
+        "title": "Jump to Bookmark"
+      },
+      {
+        "command": "contextual-bookmark.refreshBookmarks",
+        "title": "Refresh Bookmarks"
+      },
+      {
+        "command": "contextual-bookmark.clearAllBookmarks",
+        "title": "Clear All Bookmarks",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "contextual-bookmark.nextBookmark",
+        "title": "Next Bookmark",
+        "icon": "$(arrow-down)"
+      },
+      {
+        "command": "contextual-bookmark.previousBookmark",
+        "title": "Previous Bookmark",
+        "icon": "$(arrow-up)"
+      },
+      {
+        "command": "contextual-bookmark.jumpToCurrentBookmark",
+        "title": "Jump to Current Bookmark",
+        "icon": "$(location)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "bookmark-explorer",
+          "title": "Bookmarks",
+          "icon": "$(book)"
+        }
+      ]
+    },
+    "views": {
+      "bookmark-explorer": [
+        {
+          "id": "bookmarks",
+          "name": "All Bookmarks",
+          "contextualTitle": "Bookmarks"
+        }
+      ]
+    },
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "contextual-bookmark.removeBookmark",
+          "when": "view == bookmarks && viewItem == bookmark",
+          "group": "modification"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "contextual-bookmark.clearAllBookmarks",
+          "when": "view == bookmarks",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "npm run check-types && npm run lint && node esbuild.js",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "npm run check-types && npm run lint && node esbuild.js --production",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "@types/vscode": "^1.104.0",
+    "@typescript-eslint/eslint-plugin": "^8.42.0",
+    "@typescript-eslint/parser": "^8.42.0",
+    "@vscode/test-cli": "^0.0.11",
+    "@vscode/test-electron": "^2.5.2",
+    "esbuild": "^0.25.9",
+    "eslint": "^9.34.0",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@types/uuid": "^10.0.0",
+    "uuid": "^13.0.0"
+  }
+}
