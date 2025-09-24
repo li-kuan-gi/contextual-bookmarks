@@ -7,13 +7,17 @@ interface BookmarkStorage {
   [contextId: string]: Bookmark[];
 }
 
+interface NavigationState {
+    [contextId: string]: number; // Maps contextId to its currentBookmarkIndex
+}
+
 const DEFAULT_CONTEXT = 'default';
 
 export class BookmarkManager {
   private static instance: BookmarkManager;
   private storage: BookmarkStorage = {};
+  private navigationState: NavigationState = {};
   private activeContextId: string = DEFAULT_CONTEXT;
-  private currentBookmarkIndex: number = -1;
 
   private constructor(private context: vscode.ExtensionContext) {
     this.load();
@@ -24,6 +28,7 @@ export class BookmarkManager {
     const oldBookmarks = this.context.workspaceState.get<Bookmark[]>('bookmarks');
     if (Array.isArray(oldBookmarks) && oldBookmarks.length > 0) {
       this.storage[DEFAULT_CONTEXT] = oldBookmarks;
+      this.navigationState[DEFAULT_CONTEXT] = -1;
       this.activeContextId = DEFAULT_CONTEXT;
       this.context.workspaceState.update('bookmarks', undefined); // Remove old data
       this.save();
@@ -32,19 +37,24 @@ export class BookmarkManager {
 
     // Load new format
     this.storage = this.context.workspaceState.get<BookmarkStorage>('bookmark-storage', { [DEFAULT_CONTEXT]: [] });
+    this.navigationState = this.context.workspaceState.get<NavigationState>('bookmark-navigation-state', {});
     this.activeContextId = this.context.workspaceState.get<string>('bookmark-active-context', DEFAULT_CONTEXT);
 
-    // Ensure active context exists
+    // Ensure active context and its navigation state exist
     if (!this.storage[this.activeContextId]) {
         this.activeContextId = DEFAULT_CONTEXT;
-        if (!this.storage[this.activeContextId]) {
-            this.storage[this.activeContextId] = [];
-        }
+    }
+    if (!this.storage[this.activeContextId]) {
+        this.storage[this.activeContextId] = [];
+    }
+    if (this.navigationState[this.activeContextId] === undefined) {
+        this.navigationState[this.activeContextId] = -1;
     }
   }
 
   private async save(): Promise<void> {
     await this.context.workspaceState.update('bookmark-storage', this.storage);
+    await this.context.workspaceState.update('bookmark-navigation-state', this.navigationState);
     await this.context.workspaceState.update('bookmark-active-context', this.activeContextId);
   }
 
@@ -67,19 +77,20 @@ export class BookmarkManager {
 
   public async createContext(newContextId: string): Promise<boolean> {
     if (this.storage[newContextId] || !newContextId) {
-        return false; // Already exists or empty name
+        return false;
     }
     this.storage[newContextId] = [];
+    this.navigationState[newContextId] = -1;
     await this.save();
     return true;
   }
 
   public async switchContext(contextId: string): Promise<boolean> {
     if (!this.storage[contextId]) {
-        return false; // Does not exist
+        return false;
     }
     this.activeContextId = contextId;
-    this.currentBookmarkIndex = -1; // Reset navigation index
+    // No need to reset index, it's already context-specific
     await this.save();
     return true;
   }
@@ -96,6 +107,7 @@ export class BookmarkManager {
     }
 
     delete this.storage[contextId];
+    delete this.navigationState[contextId];
     await this.save();
     return 'success';
   }
@@ -106,10 +118,17 @@ export class BookmarkManager {
     return this.storage[this.activeContextId] || [];
   }
 
-  public async addBookmark(fsPath: string, lineNumber: number, label: string) {
+  public async addBookmark(fsPath: string, lineNumber: number, label: string): Promise<boolean> {
+    const bookmarks = this.getBookmarks();
+    if (bookmarks.find(b => b.fsPath === fsPath && b.lineNumber === lineNumber)) {
+        return false;
+    }
+
     const newBookmark: Bookmark = { id: uuidv4(), fsPath, lineNumber, label };
-    this.getBookmarks().push(newBookmark);
+    bookmarks.push(newBookmark);
+    this.navigationState[this.activeContextId] = bookmarks.length - 1;
     await this.save();
+    return true;
   }
 
   public async removeBookmark(bookmarkId: string) {
@@ -117,17 +136,18 @@ export class BookmarkManager {
     const oldIndex = bookmarks.findIndex(b => b.id === bookmarkId);
     this.storage[this.activeContextId] = bookmarks.filter(b => b.id !== bookmarkId);
     
-    if (this.currentBookmarkIndex > oldIndex) {
-        this.currentBookmarkIndex--;
-    } else if (this.currentBookmarkIndex === oldIndex) {
-        this.currentBookmarkIndex = -1;
+    const currentIndex = this.navigationState[this.activeContextId];
+    if (currentIndex > oldIndex) {
+        this.navigationState[this.activeContextId]--;
+    } else if (currentIndex === oldIndex) {
+        this.navigationState[this.activeContextId] = -1;
     }
     await this.save();
   }
 
   public async clearAllBookmarks() {
     this.storage[this.activeContextId] = [];
-    this.currentBookmarkIndex = -1;
+    this.navigationState[this.activeContextId] = -1;
     await this.save();
   }
 
@@ -152,7 +172,7 @@ export class BookmarkManager {
         bookmarks.push(removed);
         newIndex = bookmarks.length - 1;
     }
-    this.currentBookmarkIndex = newIndex;
+    this.navigationState[this.activeContextId] = newIndex;
     await this.save();
   }
 
@@ -207,35 +227,40 @@ export class BookmarkManager {
 
   public setCurrentBookmarkById(bookmarkId?: string) {
     if (!bookmarkId) {
-        this.currentBookmarkIndex = -1;
+        this.navigationState[this.activeContextId] = -1;
         return;
     }
-    this.currentBookmarkIndex = this.getBookmarks().findIndex(b => b.id === bookmarkId);
+    this.navigationState[this.activeContextId] = this.getBookmarks().findIndex(b => b.id === bookmarkId);
   }
 
   public getCurrentBookmark(): Bookmark | undefined {
     const bookmarks = this.getBookmarks();
-    if (this.currentBookmarkIndex < 0 || this.currentBookmarkIndex >= bookmarks.length) {
+    const currentIndex = this.navigationState[this.activeContextId];
+    if (currentIndex < 0 || currentIndex >= bookmarks.length) {
         return undefined;
     }
-    return bookmarks[this.currentBookmarkIndex];
+    return bookmarks[currentIndex];
   }
 
   public getNextBookmark(): Bookmark | undefined {
     const bookmarks = this.getBookmarks();
-    if (bookmarks.length === 0 || this.currentBookmarkIndex >= bookmarks.length - 1) {
-        return undefined; // No more bookmarks
+    let currentIndex = this.navigationState[this.activeContextId];
+    if (bookmarks.length === 0 || currentIndex >= bookmarks.length - 1) {
+        return undefined;
     }
-    this.currentBookmarkIndex++;
-    return bookmarks[this.currentBookmarkIndex];
+    currentIndex++;
+    this.navigationState[this.activeContextId] = currentIndex;
+    return bookmarks[currentIndex];
   }
 
   public getPreviousBookmark(): Bookmark | undefined {
     const bookmarks = this.getBookmarks();
-    if (bookmarks.length === 0 || this.currentBookmarkIndex <= 0) {
-        return undefined; // No previous bookmarks
+    let currentIndex = this.navigationState[this.activeContextId];
+    if (bookmarks.length === 0 || currentIndex <= 0) {
+        return undefined;
     }
-    this.currentBookmarkIndex--;
-    return bookmarks[this.currentBookmarkIndex];
+    currentIndex--;
+    this.navigationState[this.activeContextId] = currentIndex;
+    return bookmarks[currentIndex];
   }
 }

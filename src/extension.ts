@@ -141,9 +141,14 @@ export function activate(context: vscode.ExtensionContext) {
         const lineNumber = editor.selection.active.line + 1;
         const lineText = editor.document.lineAt(lineNumber - 1).text.trim();
         const fsPath = editor.document.uri.fsPath;
-        await bookmarkManager.addBookmark(fsPath, lineNumber, lineText);
-        bookmarkProvider.refresh();
-        vscode.window.showInformationMessage(`Bookmark added to line ${lineNumber}`);
+        
+        const success = await bookmarkManager.addBookmark(fsPath, lineNumber, lineText);
+        if (success) {
+            bookmarkProvider.refresh();
+            vscode.window.showInformationMessage(`Bookmark added to line ${lineNumber}`);
+        } else {
+            vscode.window.showInformationMessage(`A bookmark already exists on line ${lineNumber}.`);
+        }
       }
     })
   );
