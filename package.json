@@ -52,6 +52,21 @@
         "command": "contextual-bookmark.jumpToCurrentBookmark",
         "title": "Jump to Current Bookmark",
         "icon": "$(location)"
+      },
+      {
+        "command": "contextual-bookmark.switchContext",
+        "title": "Switch Context",
+        "icon": "$(files)"
+      },
+      {
+        "command": "contextual-bookmark.createContext",
+        "title": "Create New Context",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "contextual-bookmark.deleteContext",
+        "title": "Delete Context",
+        "icon": "$(trash)"
       }
     ],
     "viewsContainers": {
@@ -82,9 +97,24 @@
       ],
       "view/title": [
         {
+          "command": "contextual-bookmark.switchContext",
+          "when": "view == bookmarks",
+          "group": "navigation@1"
+        },
+        {
+          "command": "contextual-bookmark.createContext",
+          "when": "view == bookmarks",
+          "group": "navigation@2"
+        },
+        {
+          "command": "contextual-bookmark.deleteContext",
+          "when": "view == bookmarks",
+          "group": "navigation@3"
+        },
+        {
           "command": "contextual-bookmark.clearAllBookmarks",
           "when": "view == bookmarks",
-          "group": "navigation"
+          "group": "navigation@4"
         }
       ]
     }
