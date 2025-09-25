@@ -8,7 +8,35 @@ export function activate(context: vscode.ExtensionContext) {
   const bookmarkManager = BookmarkManager.getInstance(context);
   const bookmarkProvider = new BookmarkProvider(bookmarkManager);
 
+  // --- Decoration --- 
+  const decorationType = vscode.window.createTextEditorDecorationType({
+    gutterIconPath: context.asAbsolutePath('resources/bookmark.svg'),
+    gutterIconSize: 'contain',
+  });
+
+  const updateDecorations = () => {
+    const allBookmarks = bookmarkManager.getBookmarks();
+    for (const editor of vscode.window.visibleTextEditors) {
+        const decorations: vscode.DecorationOptions[] = [];
+        const bookmarksInFile = allBookmarks.filter(b => b.fsPath === editor.document.uri.fsPath);
+
+        for (const bookmark of bookmarksInFile) {
+            const line = bookmark.lineNumber - 1;
+            if (line < editor.document.lineCount) {
+                const range = new vscode.Range(line, 0, line, 0);
+                decorations.push({ range });
+            }
+        }
+        editor.setDecorations(decorationType, decorations);
+    }
+  };
+
   // --- Helper Functions ---
+  const updateAll = () => {
+    bookmarkProvider.refresh();
+    updateDecorations();
+  };
+
   const updateTreeViewTitle = (treeView: vscode.TreeView<Bookmark | undefined>) => {
     const activeContext = bookmarkManager.getActiveContextId();
     treeView.title = `Bookmarks: ${activeContext}`;
@@ -21,7 +49,8 @@ export function activate(context: vscode.ExtensionContext) {
     canSelectMany: true,
   });
   context.subscriptions.push(bookmarkTreeView);
-  updateTreeViewTitle(bookmarkTreeView); // Set initial title
+  updateTreeViewTitle(bookmarkTreeView);
+  updateDecorations(); // Initial decoration update
 
   // --- Event Listeners ---
   context.subscriptions.push(
@@ -29,10 +58,14 @@ export function activate(context: vscode.ExtensionContext) {
       if (event.contentChanges.length > 0) {
         const changed = await bookmarkManager.handleTextDocumentChange(event);
         if (changed) {
-          bookmarkProvider.refresh();
+          updateAll();
         }
       }
     })
+  );
+
+  context.subscriptions.push(
+    vscode.window.onDidChangeVisibleTextEditors(() => updateDecorations())
   );
 
   // --- Command Implementations ---
@@ -50,7 +83,7 @@ export function activate(context: vscode.ExtensionContext) {
         const created = await bookmarkManager.createContext(newContextId);
         if (created) {
             await bookmarkManager.switchContext(newContextId);
-            bookmarkProvider.refresh();
+            updateAll();
             updateTreeViewTitle(bookmarkTreeView);
             vscode.window.showInformationMessage(`Switched to new context: ${newContextId}`);
         } else {
@@ -68,7 +101,7 @@ export function activate(context: vscode.ExtensionContext) {
       });
       if (selectedContext) {
         await bookmarkManager.switchContext(selectedContext);
-        bookmarkProvider.refresh();
+        updateAll();
         updateTreeViewTitle(bookmarkTreeView);
       }
     })
@@ -102,7 +135,6 @@ export function activate(context: vscode.ExtensionContext) {
             if (result === 'success') {
                 vscode.window.showInformationMessage(`Successfully deleted context: ${contextToDelete}`);
             } else {
-                // This case should ideally not be hit due to the checks above, but is good for safety.
                 vscode.window.showErrorMessage(`Could not delete context. Reason: ${result}`);
             }
         }
@@ -142,12 +174,12 @@ export function activate(context: vscode.ExtensionContext) {
         const lineText = editor.document.lineAt(lineNumber - 1).text.trim();
         const fsPath = editor.document.uri.fsPath;
         
-        const success = await bookmarkManager.addBookmark(fsPath, lineNumber, lineText);
-        if (success) {
-            bookmarkProvider.refresh();
+        const result = await bookmarkManager.toggleBookmark(fsPath, lineNumber, lineText);
+        updateAll();
+        if (result === 'added') {
             vscode.window.showInformationMessage(`Bookmark added to line ${lineNumber}`);
         } else {
-            vscode.window.showInformationMessage(`A bookmark already exists on line ${lineNumber}.`);
+            vscode.window.showInformationMessage(`Bookmark removed from line ${lineNumber}`);
         }
       }
     })
@@ -165,7 +197,7 @@ export function activate(context: vscode.ExtensionContext) {
             }
         }
       }
-      bookmarkProvider.refresh();
+      updateAll();
     })
   );
 
@@ -177,12 +209,12 @@ export function activate(context: vscode.ExtensionContext) {
         );
         if (result === 'Yes') {
             await bookmarkManager.clearAllBookmarks();
-            bookmarkProvider.refresh();
+            updateAll();
         }
     })
   );
 
-  context.subscriptions.push(vscode.commands.registerCommand('contextual-bookmark.refreshBookmarks', () => bookmarkProvider.refresh()));
+  context.subscriptions.push(vscode.commands.registerCommand('contextual-bookmark.refreshBookmarks', () => updateAll()));
 }
 
 export function deactivate() {}

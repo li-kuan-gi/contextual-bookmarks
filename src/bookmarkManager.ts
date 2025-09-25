@@ -90,7 +90,6 @@ export class BookmarkManager {
         return false;
     }
     this.activeContextId = contextId;
-    // No need to reset index, it's already context-specific
     await this.save();
     return true;
   }
@@ -118,22 +117,36 @@ export class BookmarkManager {
     return this.storage[this.activeContextId] || [];
   }
 
-  public async addBookmark(fsPath: string, lineNumber: number, label: string): Promise<boolean> {
+  public async toggleBookmark(fsPath: string, lineNumber: number, label: string): Promise<'added' | 'removed'> {
     const bookmarks = this.getBookmarks();
-    if (bookmarks.find(b => b.fsPath === fsPath && b.lineNumber === lineNumber)) {
-        return false;
-    }
+    const existingIndex = bookmarks.findIndex(b => b.fsPath === fsPath && b.lineNumber === lineNumber);
 
-    const newBookmark: Bookmark = { id: uuidv4(), fsPath, lineNumber, label };
-    bookmarks.push(newBookmark);
-    this.navigationState[this.activeContextId] = bookmarks.length - 1;
-    await this.save();
-    return true;
+    if (existingIndex > -1) {
+        // Remove existing bookmark
+        bookmarks.splice(existingIndex, 1);
+        const currentIndex = this.navigationState[this.activeContextId];
+        if (currentIndex > existingIndex) {
+            this.navigationState[this.activeContextId]--;
+        } else if (currentIndex === existingIndex) {
+            this.navigationState[this.activeContextId] = -1;
+        }
+        await this.save();
+        return 'removed';
+    } else {
+        // Add new bookmark
+        const newBookmark: Bookmark = { id: uuidv4(), fsPath, lineNumber, label };
+        bookmarks.push(newBookmark);
+        this.navigationState[this.activeContextId] = bookmarks.length - 1;
+        await this.save();
+        return 'added';
+    }
   }
 
   public async removeBookmark(bookmarkId: string) {
     const bookmarks = this.getBookmarks();
     const oldIndex = bookmarks.findIndex(b => b.id === bookmarkId);
+    if (oldIndex === -1) return;
+
     this.storage[this.activeContextId] = bookmarks.filter(b => b.id !== bookmarkId);
     
     const currentIndex = this.navigationState[this.activeContextId];

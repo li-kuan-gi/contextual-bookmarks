@@ -17,8 +17,8 @@
     "commands": [
       {
         "command": "contextual-bookmark.addBookmark",
-        "title": "Add Bookmark",
-        "icon": "$(add)"
+        "title": "Toggle Bookmark",
+        "icon": "$(bookmark)"
       },
       {
         "command": "contextual-bookmark.removeBookmark",
