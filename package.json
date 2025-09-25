@@ -67,6 +67,11 @@
         "command": "contextual-bookmark.deleteContext",
         "title": "Delete Context",
         "icon": "$(trash)"
+      },
+      {
+        "command": "contextual-bookmark.renameContext",
+        "title": "Rename Context",
+        "icon": "$(edit)"
       }
     ],
     "viewsContainers": {
@@ -107,14 +112,19 @@
           "group": "navigation@2"
         },
         {
-          "command": "contextual-bookmark.deleteContext",
+          "command": "contextual-bookmark.renameContext",
           "when": "view == bookmarks",
           "group": "navigation@3"
         },
         {
-          "command": "contextual-bookmark.clearAllBookmarks",
+          "command": "contextual-bookmark.deleteContext",
           "when": "view == bookmarks",
           "group": "navigation@4"
+        },
+        {
+          "command": "contextual-bookmark.clearAllBookmarks",
+          "when": "view == bookmarks",
+          "group": "navigation@5"
         }
       ]
     }

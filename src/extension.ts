@@ -141,6 +141,41 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  context.subscriptions.push(
+    vscode.commands.registerCommand('contextual-bookmark.renameContext', async () => {
+        const contextToRename = await vscode.window.showQuickPick(bookmarkManager.getAllContextIds(), {
+            placeHolder: 'Select a context to rename'
+        });
+
+        if (!contextToRename) return;
+
+        const newContextId = await vscode.window.showInputBox({
+            prompt: `Enter a new name for '${contextToRename}'`,
+            value: contextToRename,
+            validateInput: text => {
+                if (!text || text.length === 0) {
+                    return 'Context name cannot be empty.';
+                }
+                if (bookmarkManager.getAllContextIds().includes(text) && text !== contextToRename) {
+                    return `Context '${text}' already exists.`;
+                }
+                return null;
+            }
+        });
+
+        if (newContextId && newContextId !== contextToRename) {
+            const result = await bookmarkManager.renameContext(contextToRename, newContextId);
+            if (result === 'success') {
+                updateAll();
+                updateTreeViewTitle(bookmarkTreeView);
+                vscode.window.showInformationMessage(`Context '${contextToRename}' renamed to '${newContextId}'.`);
+            } else {
+                vscode.window.showErrorMessage(`Could not rename context. Reason: ${result}`);
+            }
+        }
+    })
+  );
+
   // Bookmark Commands
   const jumpTo = async (bookmark: Bookmark | undefined, endOfListMessage?: string) => {
     if (!bookmark) {

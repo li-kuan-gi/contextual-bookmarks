@@ -111,6 +111,34 @@ export class BookmarkManager {
     return 'success';
   }
 
+  public async renameContext(oldContextId: string, newContextId: string): Promise<'success' | 'not_found' | 'exists' | 'invalid'> {
+    if (!this.storage[oldContextId]) {
+        return 'not_found';
+    }
+    if (!newContextId || newContextId.length === 0) {
+        return 'invalid';
+    }
+    if (this.storage[newContextId]) {
+        return 'exists';
+    }
+
+    // Copy data to new context
+    this.storage[newContextId] = this.storage[oldContextId];
+    this.navigationState[newContextId] = this.navigationState[oldContextId];
+
+    // Delete old context
+    delete this.storage[oldContextId];
+    delete this.navigationState[oldContextId];
+
+    // Update active context if it was the one being renamed
+    if (this.activeContextId === oldContextId) {
+        this.activeContextId = newContextId;
+    }
+
+    await this.save();
+    return 'success';
+  }
+
   // --- Bookmark Operations (now context-aware) ---
 
   public getBookmarks(): Bookmark[] {
