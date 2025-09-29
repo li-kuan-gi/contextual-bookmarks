@@ -8,7 +8,12 @@ export function activate(context: vscode.ExtensionContext) {
   const bookmarkManager = BookmarkManager.getInstance(context);
   const bookmarkProvider = new BookmarkProvider(bookmarkManager);
 
-  // --- Decoration --- 
+  // --- Status Bar ---
+  const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+  statusBarItem.command = 'contextual-bookmark.switchContext';
+  context.subscriptions.push(statusBarItem);
+
+  // --- Decoration ---
   const decorationType = vscode.window.createTextEditorDecorationType({
     gutterIconPath: context.asAbsolutePath('resources/bookmark.svg'),
     gutterIconSize: 'contain',
@@ -32,9 +37,17 @@ export function activate(context: vscode.ExtensionContext) {
   };
 
   // --- Helper Functions ---
+  const updateStatusBar = () => {
+    const activeContext = bookmarkManager.getActiveContextId();
+    statusBarItem.text = `$(bookmark) ${activeContext}`;
+    statusBarItem.tooltip = `Current Bookmark Context: ${activeContext}`;
+    statusBarItem.show();
+  };
+
   const updateAll = () => {
     bookmarkProvider.refresh();
     updateDecorations();
+    updateStatusBar();
   };
 
   const updateTreeViewTitle = (treeView: vscode.TreeView<Bookmark | undefined>) => {
@@ -51,6 +64,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(bookmarkTreeView);
   updateTreeViewTitle(bookmarkTreeView);
   updateDecorations(); // Initial decoration update
+  updateStatusBar(); // Initial status bar update
 
   // --- Event Listeners ---
   context.subscriptions.push(
