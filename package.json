@@ -9,6 +9,10 @@
   "categories": [
     "Other"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/li-kuan-gi/contextual-bookmarks"
+  },
   "activationEvents": [
     "onView:bookmarks"
   ],
